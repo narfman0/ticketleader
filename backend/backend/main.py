@@ -1,5 +1,3 @@
-import time
-import random
 from math import ceil
 
 import asyncio
@@ -96,14 +94,23 @@ def create_random_bookings(count: int = 50000, batch_size: int = DB_POOL_SIZE //
 
 
 @app.post("/bookings/create_random_booking")
-def create_random_booking() -> Booking:
+def create_random_booking(
+    user_id: int = 0, event_id: int = 0, seat_id: int = 0
+) -> Booking:
     with Session(engine) as session:
-        user = session.exec(select(User).order_by(func.random())).first()
-        event = session.exec(select(Event).order_by(func.random())).first()
-        seat = session.exec(
-            select(Seat).where(Seat.venue_id == event.venue_id).order_by(func.random())
-        ).first()
-        booking = Booking(user_id=user.id, event_id=event.id, seat_id=seat.id)
+        user_id = (
+            user_id or session.exec(select(User).order_by(func.random())).first().id
+        )
+        if not event_id or not seat_id:
+            event = session.exec(select(Event).order_by(func.random())).first()
+            event_id = event.id
+            seat = session.exec(
+                select(Seat)
+                .where(Seat.venue_id == event.venue_id)
+                .order_by(func.random())
+            ).first()
+            seat_id = seat.id
+        booking = Booking(user_id=user_id, event_id=event_id, seat_id=seat_id)
         reserve_booking(booking)
         finalize_booking(booking)
         return booking
