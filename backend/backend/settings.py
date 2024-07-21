@@ -1,6 +1,10 @@
 import os
 
 
+def get_redis_password():
+    return os.getenv("REDIS_PASSWORD", "")
+
+
 def get_url():
     user = os.getenv("POSTGRES_USER", "postgres")
     password = os.getenv("POSTGRES_PASSWORD", "")

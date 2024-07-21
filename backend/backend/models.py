@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
+from pydantic import BaseModel
+from redlock import Lock
 
 
 class User(SQLModel, table=True):
@@ -37,3 +39,8 @@ class Booking(SQLModel, table=True):
     user_id: int | None = Field(default=None, foreign_key="user.id")
     event_id: int | None = Field(default=None, foreign_key="event.id")
     seat_id: int | None = Field(default=None, foreign_key="seat.id")
+
+
+class LockStruct(BaseModel):
+    user_id: int
+    lock: Lock
