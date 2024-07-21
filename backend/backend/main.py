@@ -68,9 +68,15 @@ def create_random_bookings(count: int = 50000):
     responses = []
     for _ in range(count):
         responses.append(
-            httpx.post("http://localhost:8000/bookings/create_random_booking").json()
+            httpx.post(
+                "http://localhost:8000"
+                + app.url_path_for(create_random_booking.__name__)
+            ).json()
         )
-    return {"status": "success", "responses": responses}
+    return {
+        "status": "success",
+        "responses": responses,
+    }
 
 
 @app.post("/bookings/create_random_booking")
