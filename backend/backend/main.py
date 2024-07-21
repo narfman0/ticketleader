@@ -1,5 +1,6 @@
 import time
 import random
+from math import ceil
 
 import asyncio
 from fastapi import FastAPI, HTTPException
@@ -14,8 +15,9 @@ from backend.models import User, Venue, Artist, Booking, Event, Seat, LockStruct
 
 LOCK_S = 10
 LOCK_MS = LOCK_S * 1000
+DB_POOL_SIZE = 20
 app = FastAPI()
-engine = create_engine(get_url(), echo=True)
+engine = create_engine(get_url(), echo=True, pool_size=DB_POOL_SIZE)
 dlm = Redlock(
     [
         {"host": "redis", "port": 6379, "password": get_redis_password(), "db": 0},
@@ -70,16 +72,22 @@ async def async_post(url):
 
 
 async def async_post_all(urls):
-    return await asyncio.gather(*[async_post(url) for url in urls])
+    return await asyncio.gather(
+        *[async_post(url) for url in urls], return_exceptions=True
+    )
 
 
 @app.post("/bookings/create_random_bookings")
-def create_random_bookings(count: int = 50000, batch_size: int = 8):
+def create_random_bookings(count: int = 50000, batch_size: int = DB_POOL_SIZE // 2):
+    if batch_size > DB_POOL_SIZE:
+        raise HTTPException(
+            status_code=400, detail="Batch size much too large vs pool size"
+        )
     create_endpoint = "http://localhost:8000" + app.url_path_for(
         create_random_booking.__name__
     )
     responses = []
-    for _ in range(count // batch_size):
+    for _ in range(ceil(count / batch_size)):
         responses.extend(asyncio.run(async_post_all([create_endpoint] * batch_size)))
     return {
         "status": "success",
@@ -97,7 +105,6 @@ def create_random_booking() -> Booking:
         ).first()
         booking = Booking(user_id=user.id, event_id=event.id, seat_id=seat.id)
         reserve_booking(booking)
-        time.sleep(max(0.05, random.gauss(0.1, 0.1)))
         finalize_booking(booking)
         return booking
 
