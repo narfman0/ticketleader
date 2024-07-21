@@ -36,3 +36,20 @@ def create_venue(venue: Venue):
         session.add(venue)
         session.commit()
     return venue
+
+
+@app.get("/seed")
+def seed():
+    with Session(engine) as session:
+        statement = select(Venue).where(Venue.name == "Norva")
+        results = session.exec(statement)
+        venue = results.one_or_none()
+        if not venue:
+            venue = Venue(
+                name="Norva",
+                description="Very hip venue downtown Norfolk",
+                address="100 Granby Ave",
+            )
+            session.add(venue)
+            session.commit()
+    return {}
