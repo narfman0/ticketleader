@@ -11,9 +11,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from backend.models import User
+from sqlmodel import SQLModel
+from backend import models  # (T)
 
-target_metadata = User.metadata
+assert models is not None  # (T) we need to import models for metadata to be populated
+target_metadata = SQLModel.metadata
 
 
 def get_url():
