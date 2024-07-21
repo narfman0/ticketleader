@@ -1,31 +1,42 @@
-from typing import Union
-
 from fastapi import FastAPI
 from sqlmodel import create_engine, delete, select, Session
-
+from redlock import Redlock
+import time
+import random
 
 from backend.settings import get_url
 from backend.models import User, Venue, Artist, Booking, Event, Seat
 
 app = FastAPI()
 engine = create_engine(get_url(), echo=True)
+dlm = Redlock(
+    [
+        {"host": "redis", "port": 6379, "db": 0},
+    ]
+)
 
 
-@app.get("/venues/{venue_id}")
-def read_venue(venue_id: int):
+@app.post("/bookings/")
+def create_booking(booking: Booking):
+    lock = dlm.lock(f"seat_{booking.seat_id}", 10000)
+    if not lock:
+        return {"status": "failed due to lock"}
+
     with Session(engine) as session:
-        statement = select(Venue).where(Venue.id == venue_id)
+        statement = select(Booking).where(
+            Booking.event_id == booking.event_id and Booking.seat_id == booking.seat_id
+        )
         results = session.exec(statement)
-        venue = results.one()
-    return venue
+        booking = results.one_or_none()
+        if booking:
+            return {"status": "Failed, seat booked"}
 
-
-@app.post("/venues/")
-def create_venue(venue: Venue):
+    time.sleep(max(0.05, random.gauss(0.4, 0.1)))  # wait a tiny bit
     with Session(engine) as session:
-        session.add(venue)
+        session.add(booking)
         session.commit()
-    return venue
+    dlm.unlock(lock)
+    return booking
 
 
 @app.get("/seed")
@@ -39,6 +50,7 @@ def seed(seats: int = 50000, users: int = 100000):
             address="100 Granby Ave",
         )
         session.add(venue)
+        session.commit()
         event = Event(venue_id=venue.id, artist_id=artist.id)
         session.add(event)
         for _ in range(seats):
