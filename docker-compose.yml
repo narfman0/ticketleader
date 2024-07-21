@@ -44,5 +44,5 @@ services:
       context: ./backend
     ports:
       - 8000:8000
-    profiles:
-      - donotstart
+    volumes:
+      - ./backend/backend:/app/backend
