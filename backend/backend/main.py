@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sqlmodel import create_engine, delete, select, Session
 from redlock import Redlock
 import time
@@ -20,7 +20,9 @@ dlm = Redlock(
 def create_booking(booking: Booking):
     lock = dlm.lock(f"seat_{booking.seat_id}", 10000)
     if not lock:
-        return {"status": "failed due to lock"}
+        raise HTTPException(
+            status_code=400, detail="Seat currently locked by another user"
+        )
 
     with Session(engine) as session:
         statement = select(Booking).where(
@@ -29,7 +31,7 @@ def create_booking(booking: Booking):
         results = session.exec(statement)
         booking = results.one_or_none()
         if booking:
-            return {"status": "Failed, seat booked"}
+            raise HTTPException(status_code=400, detail="Seat already booked")
 
     time.sleep(max(0.05, random.gauss(0.4, 0.1)))  # wait a tiny bit
     with Session(engine) as session:
