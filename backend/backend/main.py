@@ -1,24 +1,14 @@
 from typing import Union
 
 from fastapi import FastAPI
-from sqlmodel import create_engine, select, Session
+from sqlmodel import create_engine, delete, select, Session
 
 
 from backend.settings import get_url
-from backend.models import Venue
+from backend.models import User, Venue, Artist, Booking, Event, Seat
 
 app = FastAPI()
 engine = create_engine(get_url(), echo=True)
-
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
 
 
 @app.get("/venues/{venue_id}")
@@ -39,17 +29,34 @@ def create_venue(venue: Venue):
 
 
 @app.get("/seed")
-def seed():
+def seed(seats: int = 50000, users: int = 100000):
     with Session(engine) as session:
-        statement = select(Venue).where(Venue.name == "Norva")
-        results = session.exec(statement)
-        venue = results.one_or_none()
-        if not venue:
-            venue = Venue(
-                name="Norva",
-                description="Very hip venue downtown Norfolk",
-                address="100 Granby Ave",
-            )
-            session.add(venue)
-            session.commit()
-    return {}
+        artist = Artist(name="Dropkick Murphys")
+        session.add(artist)
+        venue = Venue(
+            name="Norva",
+            description="Very hip venue downtown Norfolk",
+            address="100 Granby Ave",
+        )
+        session.add(venue)
+        event = Event(venue_id=venue.id, artist_id=artist.id)
+        session.add(event)
+        for _ in range(seats):
+            session.add(Seat(venue_id=venue.id))
+        for _ in range(users):
+            session.add(User())
+        session.commit()
+    return {"status": "success"}
+
+
+@app.delete("/truncate")
+def truncate():
+    with Session(engine) as session:
+        session.exec(delete(Artist))
+        session.exec(delete(Booking))
+        session.exec(delete(Event))
+        session.exec(delete(Seat))
+        session.exec(delete(User))
+        session.exec(delete(Venue))
+        session.commit()
+    return {"status": "success"}
