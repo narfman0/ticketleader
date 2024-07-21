@@ -16,6 +16,8 @@ services:
   adminer:
     image: adminer
     restart: always
+    environment:
+      - ADMINER_DESIGN=pepa-linha-dark
     ports:
       - 8080:8080
 
