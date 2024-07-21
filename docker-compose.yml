@@ -49,6 +49,6 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - ./backend/backend:/app/backend
+      - ./backend:/app
 volumes:
   app-db-data:
