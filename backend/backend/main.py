@@ -64,9 +64,9 @@ def seed(seats: int = 50000, users: int = 100000):
 @app.delete("/truncate")
 def truncate():
     with Session(engine) as session:
-        session.exec(delete(Artist))
         session.exec(delete(Booking))
         session.exec(delete(Event))
+        session.exec(delete(Artist))
         session.exec(delete(Seat))
         session.exec(delete(User))
         session.exec(delete(Venue))
