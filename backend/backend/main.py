@@ -12,7 +12,6 @@ import httpx
 from backend.settings import get_url, get_redis_password
 from backend.models import User, Venue, Artist, Booking, Event, Seat, LockStruct
 
-BATCH_SIZE = 8
 LOCK_S = 10
 LOCK_MS = LOCK_S * 1000
 app = FastAPI()
@@ -75,13 +74,13 @@ async def async_post_all(urls):
 
 
 @app.post("/bookings/create_random_bookings")
-def create_random_bookings(count: int = 50000):
+def create_random_bookings(count: int = 50000, batch_size=8):
     create_endpoint = "http://localhost:8000" + app.url_path_for(
         create_random_booking.__name__
     )
     responses = []
-    for _ in range(count // BATCH_SIZE):
-        responses.extend(asyncio.run(async_post_all([create_endpoint] * BATCH_SIZE)))
+    for _ in range(count // batch_size):
+        responses.extend(asyncio.run(async_post_all([create_endpoint] * batch_size)))
     return {
         "status": "success",
         "responses": responses,
