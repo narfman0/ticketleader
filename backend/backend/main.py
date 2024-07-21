@@ -1,6 +1,7 @@
 import time
 import random
 
+import asyncio
 from fastapi import FastAPI, HTTPException
 from sqlmodel import create_engine, delete, select, Session
 from redlock import Redlock, Lock
@@ -11,6 +12,7 @@ import httpx
 from backend.settings import get_url, get_redis_password
 from backend.models import User, Venue, Artist, Booking, Event, Seat, LockStruct
 
+BATCH_SIZE = 8
 LOCK_S = 10
 LOCK_MS = LOCK_S * 1000
 app = FastAPI()
@@ -63,16 +65,23 @@ def list_bookings() -> list[Booking]:
         return session.exec(select(Booking)).all()
 
 
+async def async_post(url):
+    async with httpx.AsyncClient() as client:
+        return (await client.post(url)).json()
+
+
+async def async_post_all(urls):
+    return await asyncio.gather(*[async_post(url) for url in urls])
+
+
 @app.post("/bookings/create_random_bookings")
 def create_random_bookings(count: int = 50000):
+    create_endpoint = "http://localhost:8000" + app.url_path_for(
+        create_random_booking.__name__
+    )
     responses = []
-    for _ in range(count):
-        responses.append(
-            httpx.post(
-                "http://localhost:8000"
-                + app.url_path_for(create_random_booking.__name__)
-            ).json()
-        )
+    for _ in range(count // BATCH_SIZE):
+        responses.extend(asyncio.run(async_post_all([create_endpoint] * BATCH_SIZE)))
     return {
         "status": "success",
         "responses": responses,
@@ -103,7 +112,7 @@ def reserve_booking(booking: Booking):
         raise HTTPException(status_code=400, detail="Seat locked by another user")
     lock_str = LockStruct(user_id=booking.user_id, lock=lock)
     r.set(key, lock_str.model_dump_json(), ex=LOCK_S)
-    return {"status": "success", "message": "Seat reserved"}
+    return booking
 
 
 @app.post("/bookings/finalize")
